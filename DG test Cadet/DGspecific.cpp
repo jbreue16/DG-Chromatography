@@ -195,8 +195,9 @@ double centralFlux(double left, double right, Flux flux, ParameterProvider para)
 * @brief Lax-Friedrichs numerical flux
 */
 double laxFriedrichsFlux(double left, double right, Flux flux, ParameterProvider para) {
-    double lambda = abs(para.velocity); // (local/global as we only have lin. advektion) dissipation parameter
-    return 0.5 * (flux(left, para) + flux(right, para)) - lambda * (right - left);
+    double lambda = abs(para.velocity); // (local) dissipation parameter
+    // or choose lambda = Delta x/ Delta t for global LF flux
+    return 0.5 * (flux(left, para) + flux(right, para)) - (lambda/2) * (right - left);
 }
 /**
  * @brief class to create DG objects containing all DG specifics
