@@ -90,7 +90,7 @@ void surfaceIntegral(Container& cache, Discretization& DG, ParameterProvider& pa
 * @brief calculates the substitute h = D_ax S(c) - vc
 */
 void calcH(Container& cache, ParameterProvider& para) {
-	cache.h = para.dispersion * cache.S - para.velocity * cache.u;
+	cache.h = para.dispersion * cache.S - para.velocity * cache.c;
 }
 
 /**
@@ -105,20 +105,22 @@ void applyJacobian(Discretization DG, VectorXd& state) {
 */
 void ConvDisp(Container& cache, Discretization& DG, ParameterProvider& para) {
 	// reset du, auxiliary q, and surface flux
-	cache.du.setZero();
+	cache.w.setZero();
 	cache.S.setZero();
 	cache.surfaceFlux.setZero();
 	// TODO: actualize boundary flux values !
 
 	// first solve the auxiliary system for dispersion operator
-	volumeIntegral(cache, DG, para, cache.u, cache.S);
-	surfaceIntegral(cache, DG, para, cache.u, cache.S, 1);
+	volumeIntegral(cache, DG, para, cache.c, cache.S);
+	surfaceIntegral(cache, DG, para, cache.c, cache.S, 1);
 	applyJacobian(DG, cache.S);
 	cache.surfaceFlux.setZero(); // surface flux storage is used twice
 
 	// solve dispersion convection part of main equation
 	calcH(cache, para); // calculate the substitute h(S(c), c) = D_ax S(c) - v c
-	volumeIntegral(cache, DG, para, cache.u, cache.du);
-	surfaceIntegral(cache, DG, para, cache.u, cache.du, 0);
-	applyJacobian(DG, cache.du);
+	volumeIntegral(cache, DG, para, cache.c, cache.w);
+	surfaceIntegral(cache, DG, para, cache.c, cache.w, 0);
+	applyJacobian(DG, cache.w);
+
+	
 }

@@ -49,8 +49,8 @@ TEST_CASE("Test auxiliary equation solver") {
 
         for (int j = 1; j <= POLYDEG; j++) {
             // fill the state vector u and boundary values in Container
-            for (int i = 0; i < cache.u.size(); i++) {
-                cache.u[i] = pow(phNodes[i], j);
+            for (int i = 0; i < cache.c.size(); i++) {
+                cache.c[i] = pow(phNodes[i], j);
                 derivative[i] = j * pow(phNodes[i], j - 1);
             }
             cache.boundary[0] = pow(phNodes[0], j);
@@ -78,6 +78,22 @@ TEST_CASE("Test auxiliary equation solver") {
             REQUIRE(cache.S.isApprox(derivative, 1e-14)); 
         }
     }
+}
+
+TEST_CASE("Test Simulation") {
+    int POLYDEG = 3;
+    int NCELLS = 3;
+    int NCOMP = 1;
+    int NNODES = POLYDEG + 1;
+    double deltaX = 1.0 / NCELLS;
+    double velocity = 0.1;
+    double dispersion = 0.01;
+
+    Discretization DG = Discretization(POLYDEG, deltaX);
+    ParameterProvider para = ParameterProvider(NCOMP, NCELLS, POLYDEG, velocity, dispersion);
+    Container cache = Container(NCELLS, NNODES, NCOMP);
+
+    VectorXd phNodes = physNodes(0.0, 1.0, para, DG);
 }
 
 //TEST_CASE("Spielwiese") {

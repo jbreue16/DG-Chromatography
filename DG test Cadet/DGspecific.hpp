@@ -22,8 +22,8 @@ public:
 
 class Container {
 public:
-	VectorXd u; //!< state vector of mobile phase
-	VectorXd du; //!< mobile phase rhs
+	VectorXd c; //!< state vector of mobile phase
+	VectorXd w; //!< mobile phase + solidphase rhs
 	VectorXd S; //!< auxiliary variable du/dx
 	VectorXd h; //!< substitute h = D_ax S - v u
 	VectorXd surfaceFlux; //!< stores the surface flux values

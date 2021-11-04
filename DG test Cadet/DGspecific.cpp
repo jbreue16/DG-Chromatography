@@ -245,8 +245,8 @@ Discretization::Discretization(int degree, double dX, riemannSolver numFlux)
 */
 class Container{
 public:
-    VectorXd u; //!< state vector of mobile phase
-    VectorXd du; //!< mobile phase rhs
+    VectorXd c; //!< state vector of mobile phase
+    VectorXd w; //!< mobile phase + solidphase rhs
     VectorXd S; //!< auxiliary variable du/dx
     VectorXd h; //!< substitute h = D_ax S - v u
     VectorXd surfaceFlux; //!< stores the surface flux values
@@ -255,8 +255,8 @@ public:
 };
 
 Container::Container(int nCells, int nNodes, int nComp)
-    : u(VectorXd::Zero(nCells* nNodes* nComp)),
-    du(VectorXd::Zero(nCells* nNodes* nComp)),
+    : c(VectorXd::Zero(nCells* nNodes* nComp)),
+    w(VectorXd::Zero(nCells* nNodes* nComp)),
     S(VectorXd::Zero(nCells* nNodes* nComp)),
     h(VectorXd::Zero(nCells* nNodes* nComp)),
     surfaceFlux(VectorXd::Zero(nComp * (nCells + 1))),
