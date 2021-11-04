@@ -39,7 +39,7 @@ double dispersionFlux(double point, ParameterProvider para);
 double advectionFlux(double point, ParameterProvider para);
 typedef double (*riemannSolver)(double left, double right, Flux flux, ParameterProvider para);
 double centralFlux(double left, double right, Flux flux, ParameterProvider para);
-double rusanovFlux(double left, double right, Flux flux, ParameterProvider para);
+double laxFriedrichsFlux(double left, double right, Flux flux, ParameterProvider para);
 // basis functions
 void lglNodesWeights(int polyDeg, VectorXd& nodes, VectorXd& weights);
 void polynomialDerivativeMatrix(int polyDeg, VectorXd& nodes, MatrixXd& D, MatrixXd& DT);
@@ -58,7 +58,7 @@ public:
 	riemannSolver numFlux; //!< numerical flux to serve as Riemann solver
 
 	double deltaX;
-	Discretization(int polyDeg, double dX, riemannSolver numFlux = rusanovFlux);
+	Discretization(int polyDeg, double dX, riemannSolver numFlux = laxFriedrichsFlux);
 };
 
 // computation of physical nodes

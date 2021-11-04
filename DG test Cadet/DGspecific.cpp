@@ -192,10 +192,10 @@ double centralFlux(double left, double right, Flux flux, ParameterProvider para)
     return 0.5 * (flux(left, para) + flux(right, para));
 }
 /**
-* @brief local Lax-Friedrichs numerical flux
+* @brief Lax-Friedrichs numerical flux
 */
-double rusanovFlux(double left, double right, Flux flux, ParameterProvider para) {
-    double lambda = 0; // TODO local dissipation parameter
+double laxFriedrichsFlux(double left, double right, Flux flux, ParameterProvider para) {
+    double lambda = abs(para.velocity); // (local/global as we only have lin. advektion) dissipation parameter
     return 0.5 * (flux(left, para) + flux(right, para)) - lambda * (right - left);
 }
 /**
@@ -215,7 +215,7 @@ public:
     riemannSolver numFlux; //!< numerical flux to serve as Riemann solver
     double deltaX; //<! cell spacing
 
-    Discretization(int polyDeg, double dX, riemannSolver numFlux = rusanovFlux);
+    Discretization(int polyDeg, double dX, riemannSolver numFlux = laxFriedrichsFlux);
 };
 
 void initializeDG(Discretization& dgsem) {
