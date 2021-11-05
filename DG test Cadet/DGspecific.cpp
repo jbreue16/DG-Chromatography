@@ -148,24 +148,24 @@ public:
     unsigned int polyDeg;
     double velocity;
     double dispersion;
-    VectorXd porosity;
-    VectorXd adsorption;
-    VectorXd ADratio;
+    double porosity; //<! global porosity coefficient
+    VectorXd adsorption; //<! adsoprtion for each component
+    VectorXd ADratio; //<! adsoprtion ratio for each component
     std::string isotherm;
     // strides to switch to next entry in state vector
     inline int strideCell() { return (polyDeg + 1) * nComp; };
     inline int strideComp() { return 1; };
     inline int strideNode() { return nComp; };
-    ParameterProvider(int nComp, int nCells, int polyDeg, double velocity, double disp, std::string isotherm = "Linear");
+    ParameterProvider(int nComp, int nCells, int polyDeg, double velocity, double disp, double porosity = 0.0, std::string isotherm = "Linear");
 };
 
-ParameterProvider::ParameterProvider(int nComp, int nCells, int polyDeg, double v, double disp, std::string isotherm)
+ParameterProvider::ParameterProvider(int nComp, int nCells, int polyDeg, double v, double disp, double porosity, std::string isotherm)
     : nComp(nComp),
     nCells(nCells),
     polyDeg(polyDeg),
     velocity(v),
     dispersion(disp),
-    porosity(VectorXd::Zero(nComp)),
+    porosity(porosity),
     adsorption(VectorXd::Zero(nComp)),
     ADratio(VectorXd::Zero(nComp)),
     isotherm(isotherm)
@@ -254,6 +254,7 @@ Discretization::Discretization(int degree, double dX, riemannSolver numFlux)
 class Container{
 public:
     VectorXd c; //!< state vector of mobile phase
+    VectorXd dc; //!< state derivatove vector of mobile phase
     VectorXd w; //!< mobile phase + solidphase rhs
     VectorXd S; //!< auxiliary variable du/dx
     VectorXd h; //!< substitute h = D_ax S - v u
@@ -264,6 +265,7 @@ public:
 
 Container::Container(int nCells, int nNodes, int nComp)
     : c(VectorXd::Zero(nCells* nNodes* nComp)),
+    dc(VectorXd::Zero(nCells* nNodes* nComp)),
     w(VectorXd::Zero(nCells* nNodes* nComp)),
     S(VectorXd::Zero(nCells* nNodes* nComp)),
     h(VectorXd::Zero(nCells* nNodes* nComp)),
