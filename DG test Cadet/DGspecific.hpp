@@ -7,19 +7,22 @@ using namespace Eigen;
 * @brief vgl cadet parameterprovider
 */
 class ParameterProvider {
-public:
-	unsigned int nComp;
-	unsigned int nCells;
-	unsigned int polyDeg;
-	double velocity;
-	double dispersion;
-	std::string isotherm;
-	// strides to switch to next entry in state vector
-	inline int strideCell() { return (polyDeg + 1) * nComp; };
-	inline int strideComp() { return 1; };
-	inline int strideNode() { return nComp; };
-	ParameterProvider(int nComp, int nCells, int polyDeg, double velocity, double disp, std::string isotherm = "Linear");
-};
+	public:
+		unsigned int nComp;
+		unsigned int nCells;
+		unsigned int polyDeg;
+		double velocity;
+		double dispersion;
+		VectorXd porosity;
+		VectorXd adsorption;
+		VectorXd ADratio;
+		std::string isotherm;
+		// strides to switch to next entry in state vector
+		inline int strideCell() { return (polyDeg + 1) * nComp; };
+		inline int strideComp() { return 1; };
+		inline int strideNode() { return nComp; };
+		ParameterProvider(int nComp, int nCells, int polyDeg, double velocity, double disp, std::string isotherm = "Linear");
+	};
 
 class Container {
 public:

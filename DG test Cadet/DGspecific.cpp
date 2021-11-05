@@ -148,6 +148,9 @@ public:
     unsigned int polyDeg;
     double velocity;
     double dispersion;
+    VectorXd porosity;
+    VectorXd adsorption;
+    VectorXd ADratio;
     std::string isotherm;
     // strides to switch to next entry in state vector
     inline int strideCell() { return (polyDeg + 1) * nComp; };
@@ -162,6 +165,9 @@ ParameterProvider::ParameterProvider(int nComp, int nCells, int polyDeg, double 
     polyDeg(polyDeg),
     velocity(v),
     dispersion(disp),
+    porosity(VectorXd::Zero(nComp)),
+    adsorption(VectorXd::Zero(nComp)),
+    ADratio(VectorXd::Zero(nComp)),
     isotherm(isotherm)
 {
 }
