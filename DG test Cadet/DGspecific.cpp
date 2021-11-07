@@ -150,7 +150,7 @@ public:
     double dispersion;
     double porosity; //<! global porosity coefficient
     VectorXd adsorption; //<! adsoprtion for each component
-    VectorXd ADratio; //<! adsoprtion ratio for each component
+    VectorXd ADratio; //<! adsoprtion/desorption ratio for each component
     std::string isotherm;
     // strides to switch to next entry in state vector
     inline int strideCell() { return (polyDeg + 1) * nComp; };
@@ -207,6 +207,28 @@ double laxFriedrichsFlux(double left, double right, Flux flux, ParameterProvider
     // or choose lambda = Delta x/ Delta t for global LF flux
     return 0.5 * (flux(left, para) + flux(right, para)) - (lambda/2) * (right - left);
 }
+
+/**
+* @brief boundary functions 1D
+*/
+typedef VectorXd(*boundaryFunction)(double t);
+/**
+* @brief Freestream boundary with 1 Component const 0.1
+*/
+VectorXd freestream01(double t) {
+    return 0.1 * VectorXd::Ones(2);
+}
+/**
+* @brief discontinous input pulse
+*/
+VectorXd pulse1Comp(double t) {
+    VectorXd BV = VectorXd::Zero(2);
+    if (t < 50) {
+        BV[0] = 0.5;
+    }
+    return BV;
+}
+
 /**
  * @brief class to create DG objects containing all DG specifics
  * @detail is actually the Discretization _disc in Cadet
@@ -222,9 +244,10 @@ public:
     Eigen::MatrixXd polyDerM; //!< Array with polynomial derivative Matrix of size nNodes^2
     Eigen::MatrixXd polyDerMtranspose; //!< Array with D^T
     riemannSolver numFlux; //!< numerical flux to serve as Riemann solver
+    boundaryFunction BoundFunc; //!< boundary function
     double deltaX; //<! cell spacing
 
-    Discretization(int polyDeg, double dX, riemannSolver numFlux = laxFriedrichsFlux);
+    Discretization(int polyDeg, double dX, riemannSolver numFlux = laxFriedrichsFlux, boundaryFunction BoundFunc = pulse1Comp);
 };
 
 void initializeDG(Discretization& dgsem) {
@@ -233,7 +256,7 @@ void initializeDG(Discretization& dgsem) {
 }
 
 //
-Discretization::Discretization(int degree, double dX, riemannSolver numFlux)
+Discretization::Discretization(int degree, double dX, riemannSolver numFlux, boundaryFunction BoundFunc)
     : polyDeg(degree),
     nNodes(degree + 1),
     nodes(VectorXd::Zero(nNodes)),
@@ -242,7 +265,8 @@ Discretization::Discretization(int degree, double dX, riemannSolver numFlux)
     polyDerM(MatrixXd::Zero(nNodes, nNodes)),
     polyDerMtranspose(MatrixXd::Zero(nNodes, nNodes)),
     deltaX(dX),
-    numFlux(numFlux)
+    numFlux(numFlux),
+    BoundFunc(BoundFunc)
 {
     // compute/initialize DG members 
     initializeDG(*this);

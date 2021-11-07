@@ -50,6 +50,10 @@ void lglNodesWeights(int polyDeg, VectorXd& nodes, VectorXd& weights);
 void polynomialDerivativeMatrix(int polyDeg, VectorXd& nodes, MatrixXd& D, MatrixXd& DT);
 void qAndL(int polyDeg, double x, double* L, double* q, double* qder);
 
+typedef VectorXd(*boundaryFunction)(double t);
+VectorXd pulse1Comp(double t);
+VectorXd freestream01(double t);
+
 class Discretization {  // ~ vgl Discretization in cadet
 public:
 
@@ -61,9 +65,10 @@ public:
 	Eigen::MatrixXd polyDerM; //!< Array with polynomial derivative Matrix of size nNodes^2
 	Eigen::MatrixXd polyDerMtranspose; //!< Array with D^T
 	riemannSolver numFlux; //!< numerical flux to serve as Riemann solver
+	boundaryFunction BoundFunc; //!< boundary function
+	double deltaX; //<! cell spacing
 
-	double deltaX;
-	Discretization(int polyDeg, double dX, riemannSolver numFlux = laxFriedrichsFlux);
+	Discretization(int polyDeg, double dX, riemannSolver numFlux = laxFriedrichsFlux, boundaryFunction BoundFunc = pulse1Comp);
 };
 
 // computation of physical nodes
