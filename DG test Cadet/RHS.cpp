@@ -64,6 +64,7 @@ void calcSurfaceFlux(Container& cache, Discretization& DG, ParameterProvider& pa
 				cache.boundary[para.strideNode() + Comp * para.strideComp()], // boundary value
 				flux, para);
 	}
+	//std::cout << "surfaceFlux " << cache.surfaceFlux(0) << std::endl;
 }
 /**
 * @brief calculates the surface Integral
@@ -85,6 +86,7 @@ void surfaceIntegral(Container& cache, Discretization& DG, ParameterProvider& pa
 				- state[Cell * para.strideCell() + Comp * para.strideComp() + para.polyDeg * para.strideNode()] );
 		}
 	}
+	std::cout << "stateDer " << stateDer(0) << std::endl;
 }
 /**
 * @brief calculates the substitute h = D_ax S(c) - vc
@@ -163,24 +165,30 @@ void applyJacobian(Discretization DG, VectorXd& state) {
 *
 */
 void ConvDisp(Container& cache, Discretization& DG, ParameterProvider& para) {
-	// reset w, h, auxiliary S, surface flux
+	// reset w, h, auxiliary S, dc (rhs), surface flux
 	cache.w.setZero();
 	cache.h.setZero();
 	cache.S.setZero();
+	cache.dc.setZero();
 	cache.surfaceFlux.setZero();
-	// TODO: actualize boundary flux values !
+	// boundary values are calculated in time Integration
 
 	// first solve the auxiliary system for dispersion operator
 	volumeIntegral(cache, DG, para, cache.c, cache.S);
 	surfaceIntegral(cache, DG, para, cache.c, cache.S, 1);
 	applyJacobian(DG, cache.S);
+	std::cout << "auxiliary S " << cache.S << "auxiliary S " << std::endl;
 	cache.surfaceFlux.setZero(); // surface flux storage is used twice
 
 	// solve dispersion convection part of main equation
 	calcH(cache, para); // calculate the substitute h(S(c), c) = D_ax S(c) - v c
 	volumeIntegral(cache, DG, para, cache.h, cache.w);
 	surfaceIntegral(cache, DG, para, cache.h, cache.w, 0);
+
 	applyJacobian(DG, cache.w);
+
 	// estimate state vector derivative dc of mobile phase from substitues w, h
+
 	calcC(cache, para);
+
 }
