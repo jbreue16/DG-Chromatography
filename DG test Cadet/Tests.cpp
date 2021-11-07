@@ -3,6 +3,9 @@
 #include "C:\Users\jmbr\source\repos\DG test Cadet\DG test Cadet\Catch\catch.hpp"
 #include "C:\Users\jmbr\source\repos\DG test Cadet\DG test Cadet\DGspecific.hpp"
 #include "RHS.hpp"
+#include "TimeIntegration.hpp"
+//#define WITHOUT_NUMPY // somehow cant find numpy/arrayobject.h file despite it exists in the fucking folder im including
+//#include<matplotlibcpp.h>
 
 using namespace std;
 
@@ -122,21 +125,33 @@ TEST_CASE("Test isotherm Jacobian") {
     REQUIRE(Jac.isApprox(testJac.inverse(), 1e-8)); // tolerance somehow digits-1 exact.. 
 }
 
-//TEST_CASE("Test Simulation") {
-//    int POLYDEG = 3;
-//    int NCELLS = 3;
-//    int NCOMP = 1;
-//    int NNODES = POLYDEG + 1;
-//    double deltaX = 1.0 / NCELLS;
-//    double velocity = 0.1;
-//    double dispersion = 0.01;
-//
-//    Discretization DG = Discretization(POLYDEG, deltaX);
-//    ParameterProvider para = ParameterProvider(NCOMP, NCELLS, POLYDEG, velocity, dispersion);
-//    Container cache = Container(NCELLS, NNODES, NCOMP);
-//
-//    VectorXd phNodes = physNodes(0.0, 1.0, para, DG);
-//}
+TEST_CASE("Free-Stream Preservation") {
+    int POLYDEG = 3;
+    int NCELLS = 4;
+    int NCOMP = 1;
+    int NNODES = POLYDEG + 1;
+    double deltaX = 1.0 / NCELLS;
+    double velocity = 0.1;
+    double dispersion = 0.001;
+
+    Discretization DG = Discretization(POLYDEG, deltaX, laxFriedrichsFlux, freestream01);
+    ParameterProvider para = ParameterProvider(NCOMP, NCELLS, POLYDEG, velocity, dispersion);
+    Container cache = Container(NCELLS, NNODES, NCOMP);
+
+    VectorXd phNodes = physNodes(0.0, 1.0, para, DG);
+
+    // constant conditions
+    VectorXd start = 0.2 * VectorXd::Ones(cache.c.size());
+
+    double tStart = 0.0;
+    double tEnd = 20;
+    double CFL = 0.8;
+
+    VectorXd solution = solve(cache, DG, para, tStart, tEnd, CFL, start);
+    for (int out = 0; out < solution.size(); out++) {
+        std::cout << solution[out] << endl;
+    }
+}
 
 //TEST_CASE("Spielwiese") {
 //        ParameterProvider para = ParameterProvider(1, 2, 3, 1.0, 0.01);
