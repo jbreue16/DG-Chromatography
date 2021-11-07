@@ -1,4 +1,5 @@
 #define CATCH_CONFIG_MAIN
+
 #include "C:\Users\jmbr\source\repos\DG test Cadet\DG test Cadet\Catch\catch.hpp"
 #include "C:\Users\jmbr\source\repos\DG test Cadet\DG test Cadet\DGspecific.hpp"
 #include "RHS.hpp"
@@ -80,21 +81,62 @@ TEST_CASE("Test auxiliary equation solver") {
     }
 }
 
-TEST_CASE("Test Simulation") {
+TEST_CASE("Test isotherm Jacobian") {
     int POLYDEG = 3;
     int NCELLS = 3;
-    int NCOMP = 1;
+    int NCOMP = 3;
     int NNODES = POLYDEG + 1;
     double deltaX = 1.0 / NCELLS;
     double velocity = 0.1;
     double dispersion = 0.01;
+    double porosity = 0.35;
 
     Discretization DG = Discretization(POLYDEG, deltaX);
-    ParameterProvider para = ParameterProvider(NCOMP, NCELLS, POLYDEG, velocity, dispersion);
     Container cache = Container(NCELLS, NNODES, NCOMP);
-
+    try {
+        ParameterProvider para = ParameterProvider(NCOMP, NCELLS, POLYDEG, velocity, dispersion, porosity, "Lineal");
+        ConvDisp(cache, DG, para);
+    }
+    catch (std::invalid_argument const& err) {
+        REQUIRE(err.what() == std::string("spelling error or this isotherm is not implemented yet"));
+    }
+    ParameterProvider para = ParameterProvider(NCOMP, NCELLS, POLYDEG, velocity, dispersion, porosity, "Langmuir");
+    para.adsorption[0] = 0.2; // "wenig" adsorption
+    para.adsorption[1] = 0.5;
+    para.adsorption[2] = 0.8; // "viel" adsorption
+    para.ADratio[0] = 0.1; // starke desorption zu adsorption
+    para.ADratio[1] = 0.5;
+    para.ADratio[2] = 0.9; // schwache desorption zu adsorption
     VectorXd phNodes = physNodes(0.0, 1.0, para, DG);
+    for (int i = 0; i < DG.nNodes* para.nCells; i++) {
+        cache.c[3 * i] = 0.5; // Comp 1
+        cache.c[3 * i + 1] = 1; // Comp 2
+        cache.c[3 * i + 2] = 1.5; // Comp 3
+    }
+    MatrixXd Jac = calcDQDC(cache, para, 0, 0);
+    MatrixXd testJac = MatrixXd::Zero(para.nComp, para.nComp);
+    // testJac = F*(dq/dc) + I)
+    testJac << para.porosity*0.067776456 + 1.0, para.porosity * -0.0059453032, para.porosity * -0.010701545,
+              para.porosity * -0.0059453032, para.porosity * 0.142687277 + 1.0, para.porosity * -0.053507728,
+              para.porosity * -0.014268727, para.porosity * -0.071343638, para.porosity * 0.147443519 + 1.0;
+    REQUIRE(Jac.isApprox(testJac.inverse(), 1e-8)); // tolerance somehow digits-1 exact.. 
 }
+
+//TEST_CASE("Test Simulation") {
+//    int POLYDEG = 3;
+//    int NCELLS = 3;
+//    int NCOMP = 1;
+//    int NNODES = POLYDEG + 1;
+//    double deltaX = 1.0 / NCELLS;
+//    double velocity = 0.1;
+//    double dispersion = 0.01;
+//
+//    Discretization DG = Discretization(POLYDEG, deltaX);
+//    ParameterProvider para = ParameterProvider(NCOMP, NCELLS, POLYDEG, velocity, dispersion);
+//    Container cache = Container(NCELLS, NNODES, NCOMP);
+//
+//    VectorXd phNodes = physNodes(0.0, 1.0, para, DG);
+//}
 
 //TEST_CASE("Spielwiese") {
 //        ParameterProvider para = ParameterProvider(1, 2, 3, 1.0, 0.01);
