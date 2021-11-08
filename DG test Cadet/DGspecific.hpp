@@ -10,6 +10,7 @@ class ParameterProvider {
 public:
 	unsigned int nComp;
 	unsigned int nCells;
+	unsigned int nNodes;
 	unsigned int polyDeg;
 	double velocity;
 	double dispersion;
@@ -41,7 +42,7 @@ typedef double (*Flux)(double point, ParameterProvider para);
 double auxiliaryFlux(double point, ParameterProvider para);
 double advectionDispersionFlux(double point, ParameterProvider para);
 double dispersionFlux(double point, ParameterProvider para);
-double advectionFlux(double point, ParameterProvider para);
+double convectionFlux(double point, ParameterProvider para);
 typedef double (*riemannSolver)(double left, double right, Flux flux, ParameterProvider para);
 double centralFlux(double left, double right, Flux flux, ParameterProvider para);
 double laxFriedrichsFlux(double left, double right, Flux flux, ParameterProvider para);
@@ -49,10 +50,13 @@ double laxFriedrichsFlux(double left, double right, Flux flux, ParameterProvider
 void lglNodesWeights(int polyDeg, VectorXd& nodes, VectorXd& weights);
 void polynomialDerivativeMatrix(int polyDeg, VectorXd& nodes, MatrixXd& D, MatrixXd& DT);
 void qAndL(int polyDeg, double x, double* L, double* q, double* qder);
-
-typedef VectorXd(*boundaryFunction)(double t);
-VectorXd pulse1Comp(double t);
-VectorXd freestream01(double t);
+//boundary treatment
+typedef double(*boundaryFunction)(double t, int component);
+double freestream01(double t, int component);
+double pulse1Comp(double t, int component);
+typedef void(*boundaryCondition)(double t, Container& cache, boundaryFunction boundFunc, ParameterProvider para);
+void Danckwert(double t, Container& cache, boundaryFunction boundFunc, ParameterProvider para);
+void Freeflow(double t, Container& cache, boundaryFunction boundFunc, ParameterProvider para);
 
 class Discretization {  // ~ vgl Discretization in cadet
 public:
@@ -66,9 +70,10 @@ public:
 	Eigen::MatrixXd polyDerMtranspose; //!< Array with D^T
 	riemannSolver numFlux; //!< numerical flux to serve as Riemann solver
 	boundaryFunction BoundFunc; //!< boundary function
+	boundaryCondition BoundCond; //!< boundary condition
 	double deltaX; //<! cell spacing
 
-	Discretization(int polyDeg, double dX, riemannSolver numFlux = laxFriedrichsFlux, boundaryFunction BoundFunc = pulse1Comp);
+	Discretization(int polyDeg, double dX, riemannSolver numFlux = laxFriedrichsFlux, boundaryCondition BoundCond = Danckwert, boundaryFunction BoundFunc = pulse1Comp);
 };
 
 // computation of physical nodes

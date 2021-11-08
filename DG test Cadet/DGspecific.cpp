@@ -145,6 +145,7 @@ class ParameterProvider {
 public:
     unsigned int nComp;
     unsigned int nCells;
+    unsigned int nNodes;
     unsigned int polyDeg;
     double velocity;
     double dispersion;
@@ -156,12 +157,15 @@ public:
     inline int strideCell() { return (polyDeg + 1) * nComp; };
     inline int strideComp() { return 1; };
     inline int strideNode() { return nComp; };
-    ParameterProvider(int nComp, int nCells, int polyDeg, double velocity, double disp, double porosity = 0.0, std::string isotherm = "Linear");
+    ParameterProvider(int nComp, int nCells, int polyDeg, double velocity, double disp,
+                      double porosity = 0.0, std::string isotherm = "Linear");
 };
 
-ParameterProvider::ParameterProvider(int nComp, int nCells, int polyDeg, double v, double disp, double porosity, std::string isotherm)
+ParameterProvider::ParameterProvider(int nComp, int nCells, int polyDeg, double v, double disp,
+                                     double porosity, std::string isotherm)
     : nComp(nComp),
     nCells(nCells),
+    nNodes(polyDeg + 1),
     polyDeg(polyDeg),
     velocity(v),
     dispersion(disp),
@@ -171,7 +175,31 @@ ParameterProvider::ParameterProvider(int nComp, int nCells, int polyDeg, double 
     isotherm(isotherm)
 {
 }
+/**
+*@brief container for state vector, auxiliary variable and rhs
+*/
+class Container {
+public:
+    VectorXd c; //!< state vector of mobile phase
+    VectorXd dc; //!< state derivatove vector of mobile phase
+    VectorXd w; //!< mobile phase + solidphase rhs
+    VectorXd S; //!< auxiliary variable du/dx
+    VectorXd h; //!< substitute h = D_ax S - v u
+    VectorXd surfaceFlux; //!< stores the surface flux values
+    VectorXd boundary; //!< stores current boundary values for c and S -> [c_1,...c_n, S_1,...,S_n]
+    Container(int nCells, int nNodes, int nComp);
+};
 
+Container::Container(int nCells, int nNodes, int nComp)
+    : c(VectorXd::Zero(nCells* nNodes* nComp)),
+    dc(VectorXd::Zero(nCells* nNodes* nComp)),
+    w(VectorXd::Zero(nCells* nNodes* nComp)),
+    S(VectorXd::Zero(nCells* nNodes* nComp)),
+    h(VectorXd::Zero(nCells* nNodes* nComp)),
+    surfaceFlux(VectorXd::Zero(nComp* (nCells + 1))),
+    boundary(VectorXd::Zero(4 * nComp))
+{
+}
 /**
 *@brief physical flux function
 */
@@ -179,14 +207,14 @@ typedef double (*Flux)(double point, ParameterProvider para);
 double auxiliaryFlux(double point, ParameterProvider para) {
     return point;
 }
-double advectionFlux(double point, ParameterProvider para) {
+double convectionFlux(double point, ParameterProvider para) {
     return para.velocity * point;
 }
 double dispersionFlux(double point, ParameterProvider para) {
-    return para.dispersion * point;
+    return sqrt(para.dispersion) * point;
 }
 double advectionDispersionFlux(double point, ParameterProvider para) {
-    return dispersionFlux(point, para) - advectionFlux(point, para);
+    return dispersionFlux(point, para) - convectionFlux(point, para);
 }
 
 /**
@@ -209,26 +237,58 @@ double laxFriedrichsFlux(double left, double right, Flux flux, ParameterProvider
 }
 
 /**
-* @brief boundary functions 1D
+* @brief boundary functions 1D, returning c at inlet, outlet
 */
-typedef VectorXd(*boundaryFunction)(double t);
+typedef double(*boundaryFunction)(double t, int component);
 /**
-* @brief Freestream boundary with 1 Component const 0.1
+* @brief Freestream boundary with all Component const 0.1
 */
-VectorXd freestream01(double t) {
-    return 0.1 * VectorXd::Ones(2);
+double freestream01(double t, int component) {
+    return 0.1;
 }
 /**
 * @brief discontinous input pulse
 */
-VectorXd pulse1Comp(double t) {
-    VectorXd BV = VectorXd::Zero(2);
-    if (t < 50) {
-        BV[0] = 0.5;
-    }
-    return BV;
+double pulse1Comp(double t, int component) {
+    double bound;
+    (t < 50) ? bound = 0.5 : bound = 0.0;
+    return bound;
 }
-
+/**
+* @brief boundary conditions returning the ghost nodes
+* @param [in] boundary funtion giving c at inlet, outlet
+* @param [in] t time
+*/
+typedef void(*boundaryCondition)(double t, Container& cache, boundaryFunction boundFunc, ParameterProvider para);
+/**
+* @brief implements the Danckwert boundary conditions
+*/
+void Danckwert(double t, Container& cache, boundaryFunction boundFunc, ParameterProvider para) {
+    for (int comp = 0; comp < para.nComp; comp++) {
+        cache.boundary[comp]                  = cache.c[comp]; // c_l inlet
+        cache.boundary[para.nComp + comp]     = cache.c[para.nCells * para.strideCell() 
+                                                        - para.strideNode() + comp]; // c_r outlet
+        cache.boundary[2 * para.nComp + comp] = (-para.dispersion * cache.S[comp] + 2.0 * para.velocity *
+            (cache.c[comp] - boundFunc(t, comp))) / (para.dispersion == 0) ? 1.0 : para.dispersion; // S_l inlet
+        cache.boundary[3 * para.nComp + comp] = cache.S[para.nCells * para.strideCell()
+                                                        - para.strideNode() + comp]; // S_r outlet
+    }
+    // std::cout << "boundary values " << std::endl << cache.boundary << std::endl;
+}
+/**
+* @brief implements Freeflow boundary conditions
+*/
+void Freeflow(double t, Container& cache, boundaryFunction boundFunc, ParameterProvider para) {
+    for (int comp = 0; comp < para.nComp; comp++) {
+        cache.boundary[comp] = cache.c[comp]; // c_l inlet
+        cache.boundary[para.nComp + comp] = cache.c[para.nCells * para.strideCell()
+                                                    - para.strideNode() + comp]; // c_r outlet
+        cache.boundary[2 * para.nComp + comp] = cache.S[comp]; // S_l inlet
+        cache.boundary[3 * para.nComp + comp] = cache.S[para.nCells * para.strideCell()
+                                                        - para.strideNode() + comp]; // S_r outlet
+    }
+    // std::cout << "boundary values " << std::endl << cache.boundary << std::endl;
+}
 /**
  * @brief class to create DG objects containing all DG specifics
  * @detail is actually the Discretization _disc in Cadet
@@ -245,9 +305,11 @@ public:
     Eigen::MatrixXd polyDerMtranspose; //!< Array with D^T
     riemannSolver numFlux; //!< numerical flux to serve as Riemann solver
     boundaryFunction BoundFunc; //!< boundary function
+    boundaryCondition BoundCond; //!< boundary condition
     double deltaX; //<! cell spacing
 
-    Discretization(int polyDeg, double dX, riemannSolver numFlux = laxFriedrichsFlux, boundaryFunction BoundFunc = pulse1Comp);
+    Discretization(int polyDeg, double dX, riemannSolver numFlux = laxFriedrichsFlux,
+                   boundaryCondition BoundCond = Danckwert, boundaryFunction BoundFunc = pulse1Comp);
 };
 
 void initializeDG(Discretization& dgsem) {
@@ -255,8 +317,8 @@ void initializeDG(Discretization& dgsem) {
     polynomialDerivativeMatrix(dgsem.polyDeg, dgsem.nodes, dgsem.polyDerM, dgsem.polyDerMtranspose);
 }
 
-//
-Discretization::Discretization(int degree, double dX, riemannSolver numFlux, boundaryFunction BoundFunc)
+Discretization::Discretization(int degree, double dX, riemannSolver numFlux,
+                               boundaryCondition BoundCond, boundaryFunction BoundFunc)
     : polyDeg(degree),
     nNodes(degree + 1),
     nodes(VectorXd::Zero(nNodes)),
@@ -266,36 +328,11 @@ Discretization::Discretization(int degree, double dX, riemannSolver numFlux, bou
     polyDerMtranspose(MatrixXd::Zero(nNodes, nNodes)),
     deltaX(dX),
     numFlux(numFlux),
+    BoundCond(BoundCond),
     BoundFunc(BoundFunc)
 {
     // compute/initialize DG members 
     initializeDG(*this);
-}
-
-/**
-*@brief container for state vector, auxiliary variable and rhs
-*/
-class Container{
-public:
-    VectorXd c; //!< state vector of mobile phase
-    VectorXd dc; //!< state derivatove vector of mobile phase
-    VectorXd w; //!< mobile phase + solidphase rhs
-    VectorXd S; //!< auxiliary variable du/dx
-    VectorXd h; //!< substitute h = D_ax S - v u
-    VectorXd surfaceFlux; //!< stores the surface flux values
-    VectorXd boundary; //!< stores current boundary values
-    Container(int nCells, int nNodes, int nComp);
-};
-
-Container::Container(int nCells, int nNodes, int nComp)
-    : c(VectorXd::Zero(nCells* nNodes* nComp)),
-    dc(VectorXd::Zero(nCells* nNodes* nComp)),
-    w(VectorXd::Zero(nCells* nNodes* nComp)),
-    S(VectorXd::Zero(nCells* nNodes* nComp)),
-    h(VectorXd::Zero(nCells* nNodes* nComp)),
-    surfaceFlux(VectorXd::Zero(nComp * (nCells + 1))),
-    boundary(VectorXd::Zero(2 * nComp))
-{
 }
 
 /**
