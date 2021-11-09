@@ -42,12 +42,14 @@ Eigen::VectorXd solveRK3(Container& cache, Discretization& DG, ParameterProvider
 		cache.c = cache.c + Dt * ((1.0 / 6.0) * cache.dc + (2.0 / 3.0) * v2 + (1.0 / 6.0) * v1);
 
 		t += Dt;
+		std::cout << "t=" << t << std::endl;
 	}
 	return cache.c;
 }
 
 /**
 *@brief Carpenter Kennedy 4th order low storage expl. RK
+* @detail is freestream preserving (dispersion = 0.0)
 */
 Eigen::VectorXd solveRK4(Container& cache, Discretization& DG, ParameterProvider& para, double tstart, double tend, double CFL, VectorXd start) {
 	double t = tstart;
@@ -72,14 +74,15 @@ Eigen::VectorXd solveRK4(Container& cache, Discretization& DG, ParameterProvider
 		// calc convection dispersion rhs
 		ConvDisp(cache, DG, para, t); // stores rhs in cache.dc
 		g = cache.dc;
-		// expl. 3-stage RK
-		for (int stage = 0; stage < 5; stage++) {
-			ConvDisp(cache, DG, para, t + B[stage] * Dt);
-			g = A[stage] * g + cache.dc;
-			cache.c += C[stage] * Dt * g;
+		// expl. 5-step RK
+		for (int step = 0; step < 5; step++) {
+			ConvDisp(cache, DG, para, t + B[step] * Dt);
+			g = A[step] * g + cache.dc;
+			cache.c += C[step] * Dt * g;
 		}
 
 		t += Dt;
+		std::cout << "t=" << t << std::endl;
 	}
 	return cache.c;
 }
