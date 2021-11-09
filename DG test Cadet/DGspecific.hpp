@@ -45,7 +45,14 @@ double dispersionFlux(double point, ParameterProvider para);
 double convectionFlux(double point, ParameterProvider para);
 typedef double (*riemannSolver)(double left, double right, Flux flux, ParameterProvider para);
 double centralFlux(double left, double right, Flux flux, ParameterProvider para);
+/**
+* @brief Lax-Friedrichs numerical flux
+*/
 double laxFriedrichsFlux(double left, double right, Flux flux, ParameterProvider para);
+/**
+* @brief upwind numerical flux
+*/
+double upwindFlux(double left, double right, Flux flux, ParameterProvider para);
 // basis functions
 void lglNodesWeights(int polyDeg, VectorXd& nodes, VectorXd& weights);
 void polynomialDerivativeMatrix(int polyDeg, VectorXd& nodes, MatrixXd& D, MatrixXd& DT);
@@ -54,8 +61,17 @@ void qAndL(int polyDeg, double x, double* L, double* q, double* qder);
 typedef double(*boundaryFunction)(double t, int component);
 double freestream01(double t, int component);
 double pulse1Comp(double t, int component);
+/**
+*@brief Boundary condition
+*/
 typedef void(*boundaryCondition)(double t, Container& cache, boundaryFunction boundFunc, ParameterProvider para);
+/**
+*@brief Danckwert boundary condition
+*/
 void Danckwert(double t, Container& cache, boundaryFunction boundFunc, ParameterProvider para);
+/**
+*@brief Freeflow boundary condition
+*/
 void Freeflow(double t, Container& cache, boundaryFunction boundFunc, ParameterProvider para);
 
 class Discretization {  // ~ vgl Discretization in cadet

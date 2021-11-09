@@ -208,7 +208,7 @@ double auxiliaryFlux(double point, ParameterProvider para) {
     return point;
 }
 double convectionFlux(double point, ParameterProvider para) {
-    return para.velocity * point;
+    return - para.velocity * point;
 }
 double dispersionFlux(double point, ParameterProvider para) {
     return sqrt(para.dispersion) * point;
@@ -234,6 +234,12 @@ double laxFriedrichsFlux(double left, double right, Flux flux, ParameterProvider
     double lambda = abs(para.velocity); // (local) dissipation parameter
     // or choose lambda = Delta x/ Delta t for global LF flux
     return 0.5 * (flux(left, para) + flux(right, para)) - (lambda/2) * (right - left);
+}
+/**
+* @brief upwind numerical flux
+*/
+double upwindFlux(double left, double right, Flux flux, ParameterProvider para) {
+    return flux(left, para) + flux(right, para);
 }
 
 /**
