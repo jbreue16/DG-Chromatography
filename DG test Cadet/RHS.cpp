@@ -13,7 +13,7 @@
 #include "DGspecific.hpp"
 #include<Eigen/Dense>
 using namespace Eigen;
-
+using namespace std;
 
 /**
 * @brief calculates the volume Integral of the auxiliary equation
@@ -86,19 +86,19 @@ void calcSurfaceFlux(Container& cache, Discretization& DG, ParameterProvider& pa
 		// h* = h*_conv + h*_disp
 		// left boundary interface
 		cache.surfaceFlux[Comp * para.strideComp()]
-			= - DG.numFlux(cache.boundary[Comp * para.strideComp()], // boundary value c
+			= - DG.numFlux(cache.boundary[Comp * para.strideComp()], // left boundary value c
 						 cache.c[Comp * para.strideComp()], // first cell first node
 						 convectionFlux, para) // convection part
-			+ centralFlux(cache.boundary[2 * para.nComp + Comp * para.strideComp()], // boundary value S
+			+ centralFlux(cache.boundary[2 * para.nComp + Comp * para.strideComp()], // left boundary value S
 						  cache.S[Comp * para.strideComp()], // first cell first node
 						  dispersionFlux, para); // dispersion part
 		 // right boundary interface
 		cache.surfaceFlux[(para.nCells) * para.strideNode() + Comp * para.strideComp()]
 			= - DG.numFlux(cache.c[(para.nCells - 1) * para.strideCell() + (DG.nNodes - 1) * para.strideNode() + Comp * para.strideComp()], // last cell last node
-						  cache.boundary[para.strideNode() + Comp * para.strideComp()], // boundary value c
+						  cache.boundary[para.nComp + Comp * para.strideComp()], // right boundary value c
 						  convectionFlux, para) // convection part
 			+ centralFlux(cache.S[(para.nCells - 1) * para.strideCell() + (DG.nNodes - 1) * para.strideNode() + Comp * para.strideComp()], // last cell last node
-						  cache.boundary[(2* para.nComp-1) + para.strideNode() + Comp * para.strideComp()], // boundary value S
+						  cache.boundary[3 * para.nComp + Comp * para.strideComp()], // right boundary value S
 						  dispersionFlux, para); // dispersion part
 	}
 }
@@ -210,6 +210,7 @@ void ConvDisp(Container& cache, Discretization& DG, ParameterProvider& para, dou
 
 	// first solve the auxiliary system for dispersion operator
 	DG.BoundCond(t, cache, DG.BoundFunc, para); // update boundary values for c 
+	//std::cout << "boundaryS= " << cache.boundary << "boundaryS" << std::endl;
 	volumeIntegral(cache, DG, para, cache.c, cache.S);
 	surfaceIntegral(cache, DG, para, cache.c, cache.S, 1);
 	applyJacobian(DG, cache.S);
@@ -218,16 +219,16 @@ void ConvDisp(Container& cache, Discretization& DG, ParameterProvider& para, dou
 
 	// solve dispersion convection part of main equation
 	DG.BoundCond(t, cache, DG.BoundFunc, para); // update boundary values for S
+	//std::cout << "boundary= " << cache.boundary << "boundary" << std::endl;
 	calcH(cache, para); // calculate the substitute h(S(c), c) = sqrt(D_ax) S(c) - v c
 	//std::cout << "h(S,c)= " << cache.h << "h(S,c) " << std::endl;//bei FSP t=0 korrekt
 	volumeIntegral(cache, DG, para, cache.h, cache.w);
 	surfaceIntegral(cache, DG, para, cache.h, cache.w, 0);
 	//std::cout << "w(c)= " << cache.w << "w(c) " << std::endl;
-	//std::cout << "surfFlux= " << cache.surfaceFlux << "surfFlux" << std::endl;
+	std::cout << "surfFlux= " << cache.surfaceFlux << "surfFlux" << std::endl;
 	applyJacobian(DG, cache.w);
 
 	// estimate state vector derivative dc of mobile phase from substitues w, h
 	// TODO check calcDC !
 	calcDC(cache, para);
-	std::cout << "dc= " << cache.dc << "dc " << std::endl;
 }
