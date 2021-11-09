@@ -59,7 +59,7 @@ TEST_CASE("Test auxiliary equation solver") {
             }
             cache.boundary[0] = pow(phNodes[0], j);
             cache.boundary[1] = pow(phNodes[phNodes.size() - 1], j);
-            ConvDisp(cache, DG, para);
+            ConvDisp(cache, DG, para, 0.0);
 
             //cout << " u: " << endl;
             //for (int i = 0; i < cache.S.size(); i++) {
@@ -98,7 +98,7 @@ TEST_CASE("Test isotherm Jacobian") {
     Container cache = Container(NCELLS, NNODES, NCOMP);
     try {
         ParameterProvider para = ParameterProvider(NCOMP, NCELLS, POLYDEG, velocity, dispersion, porosity, "Lineal");
-        ConvDisp(cache, DG, para);
+        ConvDisp(cache, DG, para, 0.0);
     }
     catch (std::invalid_argument const& err) {
         REQUIRE(err.what() == std::string("spelling error or this isotherm is not implemented yet"));
@@ -127,30 +127,30 @@ TEST_CASE("Test isotherm Jacobian") {
 
 TEST_CASE("Free-Stream Preservation") {
     int POLYDEG = 3;
-    int NCELLS = 4;
+    int NCELLS = 10;
     int NCOMP = 1;
     int NNODES = POLYDEG + 1;
     double deltaX = 1.0 / NCELLS;
-    double velocity = 0.1;
-    double dispersion = 0.001;
+    double velocity = 0.8;
+    double dispersion = 0.0; // Freestream only without dispersion !
 
-    Discretization DG = Discretization(POLYDEG, deltaX, laxFriedrichsFlux, freestream01);
+    Discretization DG = Discretization(POLYDEG, deltaX, laxFriedrichsFlux, Freeflow, freestream01);
     ParameterProvider para = ParameterProvider(NCOMP, NCELLS, POLYDEG, velocity, dispersion);
     Container cache = Container(NCELLS, NNODES, NCOMP);
 
     VectorXd phNodes = physNodes(0.0, 1.0, para, DG);
 
     // constant conditions
-    VectorXd start = 0.2 * VectorXd::Ones(cache.c.size());
+    VectorXd start = 0.1 * VectorXd::Ones(cache.c.size());
 
     double tStart = 0.0;
-    double tEnd = 20;
-    double CFL = 0.8;
+    double tEnd = 10;
+    double CFL = 0.95;
 
-    VectorXd solution = solve(cache, DG, para, tStart, tEnd, CFL, start);
-    for (int out = 0; out < solution.size(); out++) {
-        std::cout << solution[out] << endl;
-    }
+    VectorXd solution = solveRK4(cache, DG, para, tStart, tEnd, CFL, start);
+
+    // test freestream preservation
+    REQUIRE(start == solution);
 }
 
 //TEST_CASE("Spielwiese") {
