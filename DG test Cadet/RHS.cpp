@@ -73,7 +73,7 @@ void calcSurfaceFlux(Container& cache, Discretization& DG, ParameterProvider& pa
 		for (int Comp = 0; Comp < para.nComp; Comp++) {
 			// h* = h*_conv + h*_disp
 			cache.surfaceFlux[Cell * para.strideNode() + Comp * para.strideComp()] // inner interfaces
-				= - DG.numFlux(cache.c[Cell * para.strideCell() + Comp * para.strideComp()], // left cells
+				= DG.numFlux(cache.c[Cell * para.strideCell() + Comp * para.strideComp()], // left cells
 					cache.c[Cell * para.strideCell() + Comp * para.strideComp() - para.strideNode()], // right cells
 					convectionFlux, para) // convection part
 				+ centralFlux(cache.S[Cell * para.strideCell() + Comp * para.strideComp()], // left cells
@@ -86,7 +86,7 @@ void calcSurfaceFlux(Container& cache, Discretization& DG, ParameterProvider& pa
 		// h* = h*_conv + h*_disp
 		// left boundary interface
 		cache.surfaceFlux[Comp * para.strideComp()]
-			= - DG.numFlux(cache.boundary[Comp * para.strideComp()], // left boundary value c
+			= DG.numFlux(cache.boundary[Comp * para.strideComp()], // left boundary value c
 						 cache.c[Comp * para.strideComp()], // first cell first node
 						 convectionFlux, para) // convection part
 			+ centralFlux(cache.boundary[2 * para.nComp + Comp * para.strideComp()], // left boundary value S
@@ -94,7 +94,7 @@ void calcSurfaceFlux(Container& cache, Discretization& DG, ParameterProvider& pa
 						  dispersionFlux, para); // dispersion part
 		 // right boundary interface
 		cache.surfaceFlux[(para.nCells) * para.strideNode() + Comp * para.strideComp()]
-			= - DG.numFlux(cache.c[(para.nCells - 1) * para.strideCell() + (DG.nNodes - 1) * para.strideNode() + Comp * para.strideComp()], // last cell last node
+			= DG.numFlux(cache.c[(para.nCells - 1) * para.strideCell() + (DG.nNodes - 1) * para.strideNode() + Comp * para.strideComp()], // last cell last node
 						  cache.boundary[para.nComp + Comp * para.strideComp()], // right boundary value c
 						  convectionFlux, para) // convection part
 			+ centralFlux(cache.S[(para.nCells - 1) * para.strideCell() + (DG.nNodes - 1) * para.strideNode() + Comp * para.strideComp()], // last cell last node
