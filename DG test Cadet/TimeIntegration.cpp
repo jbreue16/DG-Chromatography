@@ -86,4 +86,25 @@ Eigen::VectorXd solveRK4(Container& cache, Discretization& DG, ParameterProvider
 	}
 	return cache.c;
 }
+/**
+*@brief expl. Euler
+*/
+Eigen::VectorXd solveEuler(Container& cache, Discretization& DG, ParameterProvider& para, double tstart, double tend, double CFL, VectorXd start) {
+	double t = tstart;
+	double Dt = 0.0;
+	cache.c = start;
 
+	while (t < tend) {
+		// determine current timestep
+		Dt = 0.01;//(timestep(DG, para, CFL, tend) + t > tend) ? tend - t : timestep(DG, para, CFL, tend);
+		//std::cout << "Timestep: " << Dt << std::endl;
+		// calc convection dispersion rhs
+		ConvDisp(cache, DG, para, t); // stores rhs in cache.dc
+		// expl. Euler
+		cache.c += Dt * cache.dc;
+
+		t += Dt;
+		std::cout << "t=" << t << std::endl;
+	}
+	return cache.c;
+}
