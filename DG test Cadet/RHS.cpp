@@ -26,10 +26,10 @@ void volumeIntegral(Container& cache, Discretization& DG, ParameterProvider& par
 	for (int Cell = 0; Cell < para.nCells; Cell++) {
 		for (int Node = 0; Node < DG.nNodes; Node++) {
 			for (int Comp = 0; Comp < para.nComp; Comp++) {
-				// strong volume integral -> D h
+				// strong volume integral -> [- D* state]
 				for (int ii = 0; ii < DG.nNodes; ii++) {
 					stateDer[Cell * para.strideCell() + Node * para.strideNode() + Comp * para.strideComp()]
-					+= DG.polyDerM(Node, ii) * state(Cell * para.strideCell() + ii * para.strideNode() + Comp * para.strideComp());
+					-= DG.polyDerM(Node, ii) * state(Cell * para.strideCell() + ii * para.strideNode() + Comp * para.strideComp());
 				}
 			}
 		}
@@ -39,46 +39,47 @@ void volumeIntegral(Container& cache, Discretization& DG, ParameterProvider& par
 * @brief calculates and fills the surface flux values for auxiliary equation
 * @param [in] aux true if auxiliary, else main equation
 */
-void calcSurfaceFluxAuxiliary(Container& cache, Discretization& DG, ParameterProvider& para) {
-
+void InterfaceFluxAuxiliary(Container& cache, Discretization& DG, ParameterProvider& para) {
+	// [c* = 0.5 (c_l + c_r)]
 	// calculate inner interface fluxes
 	for (int Cell = 1; Cell < para.nCells; Cell++) {
 		for (int Comp = 0; Comp < para.nComp; Comp++) {
 			cache.surfaceFlux[Cell * para.strideNode() + Comp * para.strideComp()] // inner interfaces
-				= centralFlux(cache.c[Cell * para.strideCell() + Comp * para.strideComp()], // left cells
-					cache.c[Cell * para.strideCell() + Comp * para.strideComp() - para.strideNode()], // right cells
-					auxiliaryFlux, para);
+				= centralFlux(cache.c[Cell * para.strideCell() + Comp * para.strideComp() - para.strideNode()], // left node
+							  cache.c[Cell * para.strideCell() + Comp * para.strideComp()], // right node
+							  auxiliaryFlux, para);
 		}
 	}
 	 // calculate boundary interface fluxes
 	for (int Comp = 0; Comp < para.nComp; Comp++) {
 		cache.surfaceFlux[Comp * para.strideComp()] // left boundary interface
 			= centralFlux(cache.boundary[Comp * para.strideComp()], // boundary value
-				cache.c[Comp * para.strideComp()], // first cell first node
-				auxiliaryFlux, para);
+						  cache.c[Comp * para.strideComp()], // first cell first node
+						  auxiliaryFlux, para);
 		cache.surfaceFlux[(para.nCells) * para.strideNode() + Comp * para.strideComp()] // right boundary interface
 			= centralFlux(cache.c[(para.nCells - 1) * para.strideCell() + (DG.nNodes - 1) * para.strideNode() + Comp * para.strideComp()], // last cell last node
-				cache.boundary[para.strideNode() + Comp * para.strideComp()], // boundary value
-				auxiliaryFlux, para);
+						  cache.boundary[para.strideNode() + Comp * para.strideComp()], // boundary value
+						  auxiliaryFlux, para);
 	}
 }
 /**
 * @brief calculates and fills the surface flux values for main equation
+* @detail calculates [h* = h*_conv + h*_disp = DG.riemannSolver(v c_l, v c_r) + 0.5 sqrt(D_ax) (S_l + S_r)] and stores it into DG.numFlux
 * @param [in] aux true if auxiliary, else main equation
 */
-void calcSurfaceFlux(Container& cache, Discretization& DG, ParameterProvider& para) {
-
+void InterfaceFlux(Container& cache, Discretization& DG, ParameterProvider& para) {
+	// [h* = h*_conv + h*_disp = numFlux(v c_l, v c_r) + 0.5 sqrt(D_ax) (S_l + S_r)]
 	// calculate inner interface fluxes
 	for (int Cell = 1; Cell < para.nCells; Cell++) {
 		for (int Comp = 0; Comp < para.nComp; Comp++) {
 			// h* = h*_conv + h*_disp
 			cache.surfaceFlux[Cell * para.strideNode() + Comp * para.strideComp()] // inner interfaces
-				= DG.numFlux(cache.c[Cell * para.strideCell() + Comp * para.strideComp()], // left cells
-					cache.c[Cell * para.strideCell() + Comp * para.strideComp() - para.strideNode()], // right cells
-					convectionFlux, para) // convection part
-				+ centralFlux(cache.S[Cell * para.strideCell() + Comp * para.strideComp()], // left cells
-					cache.S[Cell * para.strideCell() + Comp * para.strideComp() - para.strideNode()], // right cells
-					dispersionFlux, para); // dispersion part
+				= DG.numFlux(cache.c[Cell * para.strideCell() + Comp * para.strideComp() - para.strideNode()], // left cell
+							 cache.c[Cell * para.strideCell() + Comp * para.strideComp()], // right cell 
+							 convectionFlux, para) // convection part
+				+ centralFlux(cache.S[Cell * para.strideCell() + Comp * para.strideComp() - para.strideNode()], // left cell
+							  cache.S[Cell * para.strideCell() + Comp * para.strideComp()], // right cell
+							  dispersionFlux, para); // dispersion part
 		}
 	}
 	//calculate boundary interface fluxes
@@ -95,8 +96,8 @@ void calcSurfaceFlux(Container& cache, Discretization& DG, ParameterProvider& pa
 		 // right boundary interface
 		cache.surfaceFlux[(para.nCells) * para.strideNode() + Comp * para.strideComp()]
 			= DG.numFlux(cache.c[(para.nCells - 1) * para.strideCell() + (DG.nNodes - 1) * para.strideNode() + Comp * para.strideComp()], // last cell last node
-						  cache.boundary[para.nComp + Comp * para.strideComp()], // right boundary value c
-						  convectionFlux, para) // convection part
+						 cache.boundary[para.nComp + Comp * para.strideComp()], // right boundary value c
+						 convectionFlux, para) // convection part
 			+ centralFlux(cache.S[(para.nCells - 1) * para.strideCell() + (DG.nNodes - 1) * para.strideNode() + Comp * para.strideComp()], // last cell last node
 						  cache.boundary[3 * para.nComp + Comp * para.strideComp()], // right boundary value S
 						  dispersionFlux, para); // dispersion part
@@ -104,35 +105,39 @@ void calcSurfaceFlux(Container& cache, Discretization& DG, ParameterProvider& pa
 }
 /**
 * @brief calculates the surface Integral
-* @param [in] State vector to be changed
-* @param [in] aux true if auxiliary, false for main equation
+* @param [in] state relevant state vector
+* @param [in] stateDer state derivative vector the solution is added to
+* @param [in] aux true for auxiliary, false for main equation
 */
 void surfaceIntegral(Container& cache, Discretization& DG, ParameterProvider& para, VectorXd& state, VectorXd& stateDer, bool aux) {
 	// calc numerical flux values c* or h* depending on equation switch aux
-	(aux == 1) ? calcSurfaceFluxAuxiliary(cache, DG, para) : calcSurfaceFlux(cache, DG, para);
+	(aux == 1) ? InterfaceFluxAuxiliary(cache, DG, para) : InterfaceFlux(cache, DG, para);
 	// calc surface integral
 	for (int Cell = 0; Cell < para.nCells; Cell++) {
 		for (int Comp = 0; Comp < para.nComp; Comp++) {
-			// strong surface integral -> M^-1 B (c*-c)
-			stateDer[Cell * para.strideCell() + Comp * para.strideComp()] // left interfaces
-				+= - DG.invWeights[0] * (cache.surfaceFlux(Cell * para.nComp + Comp) 
-				- state[Cell * para.strideCell() + Comp * para.strideComp()] );
-			stateDer[Cell * para.strideCell() + Comp * para.strideComp() + para.polyDeg * para.strideNode()] // right interfaces
-				+= DG.invWeights[para.polyDeg] * (cache.surfaceFlux((Cell + 1) * para.nComp + Comp)
-				- state[Cell * para.strideCell() + Comp * para.strideComp() + para.polyDeg * para.strideNode()] );
+			// strong surface integral -> M^-1 B [state - state*]
+			stateDer[Cell * para.strideCell() + Comp * para.strideComp()] // first node
+				-= DG.invWeights[0] * (state[Cell * para.strideCell() + Comp * para.strideComp()] // first node
+					- cache.surfaceFlux(Cell * para.nComp + Comp));
+			stateDer[Cell * para.strideCell() + Comp * para.strideComp() + para.polyDeg * para.strideNode()] // last node
+				+= DG.invWeights[para.polyDeg] * (state[Cell * para.strideCell() + Comp * para.strideComp() + para.polyDeg * para.strideNode()]
+					- cache.surfaceFlux((Cell + 1) * para.nComp + Comp));
 		}
 	}
 }
+
 /**
-* @brief calculates the substitute h = D_ax S(c) - vc
+* @brief calculates the substitute h = vc - sqrt(D_ax) S(c)
 */
 void calcH(Container& cache, ParameterProvider& para) {
-	cache.h = sqrt(para.dispersion) * cache.S - para.velocity * cache.c;
+	cache.h = para.velocity * cache.c - sqrt(para.dispersion) * cache.S;
 }
 
 /**
-* @brief returns (F* dq/dc + I)^-1
-* @param [in] cell index of the cell
+* @brief returns (F* dq/dc + I)^-1 for a specified node
+* @param [in] cell index
+* @param [in] node index
+* @param [out] inverse Jacobian isotherm
 */
 MatrixXd calcDQDC(Container& cache, ParameterProvider& para, int cell, int node) {
 	//TODO calculation depending on model isotherm
@@ -161,7 +166,7 @@ MatrixXd calcDQDC(Container& cache, ParameterProvider& para, int cell, int node)
 }
 
 /**
-* @brief calculates c from w
+* @brief calculates dc from w
 */
 void calcDC(Container& cache, ParameterProvider& para) {
 	if (para.isotherm == "Linear") { // diagonal Jacobian dq/dc
@@ -192,8 +197,14 @@ void calcDC(Container& cache, ParameterProvider& para) {
 /**
 * @brief applies the inverse Jacobian of the mapping
 */
-void applyJacobian(Discretization DG, VectorXd& state) {
+void applyMapping(Discretization DG, VectorXd& state) {
 	state = state * (2 / DG.deltaX);
+}
+/**
+* @brief applies the inverse Jacobian of the mapping and Auxiliary factor
+*/
+void applyMapping_Aux(Discretization DG, ParameterProvider para, VectorXd& state) {
+	state = state * (-2 / DG.deltaX) * ((para.dispersion==0) ? 1.0:sqrt(para.dispersion));
 }
 /**
 * @brief calculates the convection dispersion part of right hand side
@@ -213,7 +224,7 @@ void ConvDisp(Container& cache, Discretization& DG, ParameterProvider& para, dou
 	//std::cout << "boundaryS= " << cache.boundary << "boundaryS" << std::endl;
 	volumeIntegral(cache, DG, para, cache.c, cache.S);
 	surfaceIntegral(cache, DG, para, cache.c, cache.S, 1);
-	applyJacobian(DG, cache.S);
+	applyMapping_Aux(DG, para, cache.S);
 	//std::cout << "auxiliary S " << cache.S << "auxiliary S " << std::endl;
 	cache.surfaceFlux.setZero(); // surface flux storage is used twice
 
@@ -223,12 +234,13 @@ void ConvDisp(Container& cache, Discretization& DG, ParameterProvider& para, dou
 	calcH(cache, para); // calculate the substitute h(S(c), c) = sqrt(D_ax) S(c) - v c
 	//std::cout << "h(S,c)= " << cache.h << "h(S,c) " << std::endl;//bei FSP t=0 korrekt
 	volumeIntegral(cache, DG, para, cache.h, cache.w);
+	//std::cout << "(c)= " << cache.c << "(c) " << std::endl;
 	surfaceIntegral(cache, DG, para, cache.h, cache.w, 0);
+	//std::cout << "surfFlux= " << cache.surfaceFlux << "surfFlux" << std::endl;
 	//std::cout << "w(c)= " << cache.w << "w(c) " << std::endl;
-	std::cout << "surfFlux= " << cache.surfaceFlux << "surfFlux" << std::endl;
-	applyJacobian(DG, cache.w);
+	applyMapping(DG, cache.w);
 
 	// estimate state vector derivative dc of mobile phase from substitues w, h
-	// TODO check calcDC !
 	calcDC(cache, para);
+	//std::cout << "dc= " << cache.dc << "dc " << std::endl;
 }
