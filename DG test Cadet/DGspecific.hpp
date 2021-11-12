@@ -73,6 +73,10 @@ void Danckwert(double t, Container& cache, boundaryFunction boundFunc, Parameter
 *@brief Freeflow boundary condition
 */
 void Freeflow(double t, Container& cache, boundaryFunction boundFunc, ParameterProvider para);
+/**
+* @brief implements Periodic boundary conditions
+*/
+void Periodic(double t, Container& cache, boundaryFunction boundFunc, ParameterProvider para);
 
 class Discretization {  // ~ vgl Discretization in cadet
 public:

@@ -208,7 +208,7 @@ double auxiliaryFlux(double point, ParameterProvider para) {
     return point;
 }
 double convectionFlux(double point, ParameterProvider para) {
-    return - para.velocity * point;
+    return para.velocity * point;
 }
 double dispersionFlux(double point, ParameterProvider para) {
     return sqrt(para.dispersion) * point;
@@ -231,15 +231,15 @@ double centralFlux(double left, double right, Flux flux, ParameterProvider para)
 * @brief Lax-Friedrichs numerical flux
 */
 double laxFriedrichsFlux(double left, double right, Flux flux, ParameterProvider para) {
-    double lambda = abs(para.velocity); // (local) dissipation parameter
+    //double lambda = abs(para.velocity); // (local) dissipation parameter
     // or choose lambda = Delta x/ Delta t for global LF flux
-    return 0.5 * (flux(left, para) + flux(right, para)) - (lambda/2) * (right - left);
+    return 0.5 * (flux(left, para) + flux(right, para)) - (abs(para.velocity) /2) * (left - right);
 }
 /**
 * @brief upwind numerical flux
 */
 double upwindFlux(double left, double right, Flux flux, ParameterProvider para) {
-    return flux(left, para) + flux(right, para);
+    return flux(left, para);
 }
 
 /**
@@ -274,7 +274,7 @@ void Danckwert(double t, Container& cache, boundaryFunction boundFunc, Parameter
         cache.boundary[comp]                  = cache.c[comp]; // c_l inlet
         cache.boundary[para.nComp + comp]     = cache.c[para.nCells * para.strideCell() 
                                                         - para.strideNode() + comp]; // c_r outlet
-        cache.boundary[2 * para.nComp + comp] = (-sqrt(para.dispersion) * cache.S[comp] + 2.0 * para.velocity *
+        cache.boundary[2 * para.nComp + comp] = (-sqrt(para.dispersion) * cache.S[comp] - 2.0 * para.velocity *
             (cache.c[comp] + boundFunc(t, comp))) / ((para.dispersion == 0) ? 1.0 : sqrt(para.dispersion)); // S_l inlet
         cache.boundary[3 * para.nComp + comp] = cache.S[para.nCells * para.strideCell()
                                                         - para.strideNode() + comp]; // S_r outlet
@@ -291,6 +291,20 @@ void Freeflow(double t, Container& cache, boundaryFunction boundFunc, ParameterP
         cache.boundary[2 * para.nComp + comp] = cache.S[comp]; // S_l inlet
         cache.boundary[3 * para.nComp + comp] = cache.S[para.nCells * para.strideCell()
                                                         - para.strideNode() + comp]; // S_r outlet
+    }
+    // std::cout << "boundary values " << std::endl << cache.boundary << std::endl;
+}
+/**
+* @brief implements Periodic boundary conditions
+*/
+void Periodic(double t, Container& cache, boundaryFunction boundFunc, ParameterProvider para) {
+    for (int comp = 0; comp < para.nComp; comp++) {
+        cache.boundary[comp] = cache.c[para.nCells * para.strideCell()
+            - para.strideNode() + comp]; // c_l inlet
+        cache.boundary[para.nComp + comp] = cache.c[comp]; // c_r outlet
+        cache.boundary[2 * para.nComp + comp] = cache.S[para.nCells * para.strideCell()
+            - para.strideNode() + comp]; // S_l inlet
+        cache.boundary[3 * para.nComp + comp] = cache.S[comp]; // S_r outlet
     }
     // std::cout << "boundary values " << std::endl << cache.boundary << std::endl;
 }
@@ -320,6 +334,9 @@ public:
 void initializeDG(Discretization& dgsem) {
     lglNodesWeights(dgsem.polyDeg, dgsem.nodes, dgsem.weights);
     polynomialDerivativeMatrix(dgsem.polyDeg, dgsem.nodes, dgsem.polyDerM, dgsem.polyDerMtranspose);
+    for (int n = 0; n <= dgsem.polyDeg; n++) {
+        dgsem.invWeights[n] = 1.0 / dgsem.weights[n];
+    }
 }
 
 Discretization::Discretization(int degree, double dX, riemannSolver numFlux,
