@@ -77,7 +77,7 @@ void InterfaceFlux(Container& cache, Discretization& DG, ParameterProvider& para
 				= DG.numFlux(cache.c[Cell * para.strideCell() + Comp * para.strideComp() - para.strideNode()], // left cell
 							 cache.c[Cell * para.strideCell() + Comp * para.strideComp()], // right cell 
 							 convectionFlux, para) // convection part
-				+ centralFlux(cache.S[Cell * para.strideCell() + Comp * para.strideComp() - para.strideNode()], // left cell
+				- centralFlux(cache.S[Cell * para.strideCell() + Comp * para.strideComp() - para.strideNode()], // left cell
 							  cache.S[Cell * para.strideCell() + Comp * para.strideComp()], // right cell
 							  dispersionFlux, para); // dispersion part
 		}
@@ -90,7 +90,7 @@ void InterfaceFlux(Container& cache, Discretization& DG, ParameterProvider& para
 			= DG.numFlux(cache.boundary[Comp * para.strideComp()], // left boundary value c
 						 cache.c[Comp * para.strideComp()], // first cell first node
 						 convectionFlux, para) // convection part
-			+ centralFlux(cache.boundary[2 * para.nComp + Comp * para.strideComp()], // left boundary value S
+			- centralFlux(cache.boundary[2 * para.nComp + Comp * para.strideComp()], // left boundary value S
 						  cache.S[Comp * para.strideComp()], // first cell first node
 						  dispersionFlux, para); // dispersion part
 		 // right boundary interface
@@ -98,7 +98,7 @@ void InterfaceFlux(Container& cache, Discretization& DG, ParameterProvider& para
 			= DG.numFlux(cache.c[(para.nCells - 1) * para.strideCell() + (DG.nNodes - 1) * para.strideNode() + Comp * para.strideComp()], // last cell last node
 						 cache.boundary[para.nComp + Comp * para.strideComp()], // right boundary value c
 						 convectionFlux, para) // convection part
-			+ centralFlux(cache.S[(para.nCells - 1) * para.strideCell() + (DG.nNodes - 1) * para.strideNode() + Comp * para.strideComp()], // last cell last node
+			- centralFlux(cache.S[(para.nCells - 1) * para.strideCell() + (DG.nNodes - 1) * para.strideNode() + Comp * para.strideComp()], // last cell last node
 						  cache.boundary[3 * para.nComp + Comp * para.strideComp()], // right boundary value S
 						  dispersionFlux, para); // dispersion part
 	}
