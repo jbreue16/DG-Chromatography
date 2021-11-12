@@ -96,7 +96,7 @@ Eigen::VectorXd solveEuler(Container& cache, Discretization& DG, ParameterProvid
 
 	while (t < tend) {
 		// determine current timestep
-		Dt = 0.01;//(timestep(DG, para, CFL, tend) + t > tend) ? tend - t : timestep(DG, para, CFL, tend);
+		Dt = (timestep(DG, para, CFL, tend) + t > tend) ? tend - t : timestep(DG, para, CFL, tend);
 		//std::cout << "Timestep: " << Dt << std::endl;
 		// calc convection dispersion rhs
 		ConvDisp(cache, DG, para, t); // stores rhs in cache.dc
