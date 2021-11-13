@@ -82,17 +82,25 @@ void InterfaceFlux(Container& cache, Discretization& DG, ParameterProvider& para
 							  dispersionFlux, para); // dispersion part
 		}
 	}
-	//calculate boundary interface fluxes
+	//calculate boundary interface fluxes h* = h*_conv + h*_disp
 	for (int Comp = 0; Comp < para.nComp; Comp++) {
-		// h* = h*_conv + h*_disp
-		// left boundary interface
-		cache.surfaceFlux[Comp * para.strideComp()]
-			= DG.numFlux(cache.boundary[Comp * para.strideComp()], // left boundary value c
-						 cache.c[Comp * para.strideComp()], // first cell first node
-						 convectionFlux, para) // convection part
-			- centralFlux(cache.boundary[2 * para.nComp + Comp * para.strideComp()], // left boundary value S
-						  cache.S[Comp * para.strideComp()], // first cell first node
-						  dispersionFlux, para); // dispersion part
+		// We ease implementation of Danckwert BC as follows. The Danckwert BC must store h_inlet = 2vc_in - h_r
+		//  at boundary[2 * para.nComp + Comp]. As we'll (probably ?) solely use Danckwert BC this simplyfied form is be implemented.
+		if (DG.BoundCond == Danckwert) {// left boundary interface Danckwert specific implementation
+			cache.surfaceFlux[Comp * para.strideComp()]
+				= centralFlux(cache.boundary[2 * para.nComp + Comp * para.strideComp()], // left boundary value h_l = 2vc_in - h_r 
+							  cache.h[Comp * para.strideComp()], // first node value h_r
+							  auxiliaryFlux, para);
+		}
+		else { // left boundary interface standard implementation
+				cache.surfaceFlux[Comp * para.strideComp()]
+				= DG.numFlux(cache.boundary[Comp * para.strideComp()], // left boundary value c
+							 cache.c[Comp * para.strideComp()], // first cell first node
+							 convectionFlux, para) // convection part
+				- centralFlux(cache.boundary[2 * para.nComp + Comp * para.strideComp()], // left boundary value S
+							  cache.S[Comp * para.strideComp()], // first cell first node
+							  dispersionFlux, para); // dispersion part
+		}
 		 // right boundary interface
 		cache.surfaceFlux[(para.nCells) * para.strideNode() + Comp * para.strideComp()]
 			= DG.numFlux(cache.c[(para.nCells - 1) * para.strideCell() + (DG.nNodes - 1) * para.strideNode() + Comp * para.strideComp()], // last cell last node
@@ -229,10 +237,10 @@ void ConvDisp(Container& cache, Discretization& DG, ParameterProvider& para, dou
 	cache.surfaceFlux.setZero(); // surface flux storage is used twice
 
 	// solve dispersion convection part of main equation
+	calcH(cache, para); // calculate the substitute h(S(c), c) = sqrt(D_ax) S(c) - v c
+	//std::cout << "h(S,c)= " << cache.h << "h(S,c) " << std::endl;
 	DG.BoundCond(t, cache, DG.BoundFunc, para); // update boundary values for S
 	//std::cout << "boundary= " << cache.boundary << "boundary" << std::endl;
-	calcH(cache, para); // calculate the substitute h(S(c), c) = sqrt(D_ax) S(c) - v c
-	//std::cout << "h(S,c)= " << cache.h << "h(S,c) " << std::endl;//bei FSP t=0 korrekt
 	volumeIntegral(cache, DG, para, cache.h, cache.w);
 	//std::cout << "(c)= " << cache.c << "(c) " << std::endl;
 	surfaceIntegral(cache, DG, para, cache.h, cache.w, 0);

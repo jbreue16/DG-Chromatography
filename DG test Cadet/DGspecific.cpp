@@ -274,8 +274,11 @@ void Danckwert(double t, Container& cache, boundaryFunction boundFunc, Parameter
         cache.boundary[comp]                  = cache.c[comp]; // c_l inlet
         cache.boundary[para.nComp + comp]     = cache.c[para.nCells * para.strideCell() 
                                                         - para.strideNode() + comp]; // c_r outlet
-        cache.boundary[2 * para.nComp + comp] = (-sqrt(para.dispersion) * cache.S[comp] - 2.0 * para.velocity *
-            (cache.c[comp] + boundFunc(t, comp))) / ((para.dispersion == 0) ? 1.0 : sqrt(para.dispersion)); // S_l inlet
+        // store S_inlet
+        //cache.boundary[2 * para.nComp + comp] = (-sqrt(para.dispersion) * cache.S[comp] - 2.0 * para.velocity *
+        //    (cache.c[comp] + boundFunc(t, comp))) / ((para.dispersion == 0) ? 1.0 : sqrt(para.dispersion)); // S_l inlet
+        // store h_inlet
+        cache.boundary[2 * para.nComp + comp] = - cache.h[comp] + 2* para.velocity* boundFunc(t, comp); // h_l inlet = -h_r + 2vc_in
         cache.boundary[3 * para.nComp + comp] = cache.S[para.nCells * para.strideCell()
                                                         - para.strideNode() + comp]; // S_r outlet
     }
