@@ -215,6 +215,58 @@ void applyMapping_Aux(Discretization DG, ParameterProvider para, VectorXd& state
 	state = state * (-2 / DG.deltaX) * ((para.dispersion==0) ? 1.0:sqrt(para.dispersion));
 }
 /**
+* @brief calculates q from c
+*/
+void calcQ(Container& cache, ParameterProvider para) {
+	if (para.isotherm == "Linear") {
+		cache.q = para.adsorption[0]* cache.c;
+	}
+	else if (para.isotherm == "Langmuir") {
+		double factor;
+		for (int cell = 0; cell < para.nCells; cell++) {
+			for (int node = 0; node < para.polyDeg + 1; node++) {
+				factor = 1.0;
+				for (int nComp = 0; nComp < para.nComp; nComp++) {
+					// calc(1 + sum(b_i * c_i))
+					for (int comp = 0; comp < para.nComp; comp++) {
+						factor += para.ADratio[comp] * cache.c[cell * para.strideCell() + node * para.strideNode() + comp];
+					}
+					cache.q[cell * para.strideCell() + node * para.strideNode() + nComp * para.strideComp()]
+						= (para.adsorption[nComp]* cache.c[cell * para.strideCell() + node * para.strideNode()] + nComp* para.strideComp())/factor;
+				}
+			}
+		}
+	}
+	else {
+		throw std::invalid_argument("spelling error or this isotherm is not implemented yet");
+	}
+}
+void calcQ(VectorXd state, VectorXd& q, ParameterProvider para) {
+	if (para.isotherm == "Linear") {
+		q = para.adsorption[0] * state;
+	}
+	else if (para.isotherm == "Langmuir") {
+		double factor;
+		for (int cell = 0; cell < para.nCells; cell++) {
+			for (int node = 0; node < para.polyDeg + 1; node++) {
+				factor = 1.0;
+				for (int nComp = 0; nComp < para.nComp; nComp++) {
+					// calc(1 + sum(b_i * c_i))
+					for (int comp = 0; comp < para.nComp; comp++) {
+						factor += para.ADratio[comp] * state[cell * para.strideCell() + node * para.strideNode() + comp];
+					}
+					q[cell * para.strideCell() + node * para.strideNode() + nComp * para.strideComp()]
+						= (para.adsorption[nComp] * state[cell * para.strideCell() + node * para.strideNode()] + nComp * para.strideComp()) / factor;
+				}
+			}
+		}
+	}
+	else {
+		throw std::invalid_argument("spelling error or this isotherm is not implemented yet");
+	}
+}
+
+/**
 * @brief calculates the convection dispersion part of right hand side
 *
 */
