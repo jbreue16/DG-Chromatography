@@ -281,36 +281,100 @@ TEST_CASE("Advection") {
     REQUIRE(cache.c.isApprox(start, 1e-1));
 }
 
+TEST_CASE("1 Component Linear isotherm") {
+    int POLYDEG = 5;
+    int NCELLS = 20;
+    int NCOMP = 1;
+    int NNODES = POLYDEG + 1;
+    double deltaX = 1.0 / NCELLS;
+    double velocity = 0.5;
+    double dispersion = 0.0005;
+
+    Discretization DG = Discretization(POLYDEG, deltaX, upwindFlux, Danckwert, pulse1Comp);
+    ParameterProvider para = ParameterProvider(NCOMP, NCELLS, POLYDEG, velocity, dispersion);
+    Container cache = Container(NCELLS, NNODES, NCOMP);
+
+    para.porosity = 0.4;
+    para.adsorption[0] = 1.0;
+
+    VectorXd phNodes = physNodes(0.0, 1.0, para, DG);
+
+    // initial conditions
+    VectorXd start = VectorXd::Ones(cache.c.size());
+
+    double tStart = 0.0;
+    double CFL = 0.5;
+    double tEnd = 2.0;
+
+    solveEuler(cache, DG, para, tStart, tEnd, CFL, 0.0 * start);
+    calcQ(cache, para);
+
+    //Plotter plot;
+    //plot.oneLine_plot(getComponent(cache.c, para, 0), phNodes, "1 Component", "x", "C");
+}
+
+TEST_CASE("2 Component Langmuir isotherm") {
+    int POLYDEG = 4;
+    int NCELLS = 20;
+    int NCOMP = 2;
+    int NNODES = POLYDEG + 1;
+    double length = 4.0;
+    double deltaX = length / NCELLS;
+    double velocity = 0.1;
+    double dispersion = 0.001;
+
+    Discretization DG = Discretization(POLYDEG, deltaX, upwindFlux, Danckwert, pulse2Comp);
+    ParameterProvider para = ParameterProvider(NCOMP, NCELLS, POLYDEG, velocity, dispersion);
+    Container cache = Container(NCELLS, NNODES, NCOMP);
+
+    para.porosity = 0.4;
+    para.adsorption[0] = 0.5; para.adsorption[1] = 1.0;
+    para.ADratio[0] = 0.05; para.ADratio[1] = 0.1;
+
+    VectorXd phNodes = physNodes(0.0, length, para, DG);
+
+    // initial conditions
+    VectorXd start = VectorXd::Ones(cache.c.size());
+
+    double tStart = 0.0;
+    double CFL = 0.1;
+    double tEnd = 16.0;
+
+    solveEuler(cache, DG, para, tStart, tEnd, CFL, 0.0 * start);
+    calcQ(cache, para);
+
+    //write_csv(cache.c, "Langmuir1");
+    //Plotter plot;
+    //plot.oneLine_plot(getComponent(cache.c, para, 0), phNodes, "Concentration", "x", "C");
+    //VectorXd testitest(NNODES * NCELLS * NCOMP);
+    // 
+    //testitest = read_csv("data", NNODES * NCELLS * NCOMP);
+
+}
+
 //TEST_CASE("Spielwiese") {
 //    int POLYDEG = 4;
 //    int NCELLS = 20;
-//    int NCOMP = 1;
+//    int NCOMP = 2;
 //    int NNODES = POLYDEG + 1;
-//    double deltaX = 2.0 * M_PI / NCELLS;
-//    double velocity = M_PI;
-//    double dispersion = 0.1;
+//    double length = 4.0;
+//    double deltaX = length / NCELLS;
+//    double velocity = 0.1;
+//    double dispersion = 0.001;
 //
-//    Discretization DG = Discretization(POLYDEG, deltaX, upwindFlux, Periodic, pulse1Comp);// Boundary function is irrelevant for periodic BC
+//    Discretization DG = Discretization(POLYDEG, deltaX, upwindFlux, Danckwert, pulse2Comp);
 //    ParameterProvider para = ParameterProvider(NCOMP, NCELLS, POLYDEG, velocity, dispersion);
-//    Container cache = Container(NCELLS, NNODES, NCOMP);
+//    para.porosity = 0.4;
+//    para.adsorption[0] = 0.5; para.adsorption[1] = 1.0;
+//    para.ADratio[0] = 0.05; para.ADratio[1] = 0.1;
 //
-//    VectorXd phNodes = physNodes(0.0, 2.0 * M_PI, para, DG);
+//    VectorXd phNodes = physNodes(0.0, length, para, DG);
+//    VectorXd testitest(NNODES * NCELLS * NCOMP);
+//    VectorXd q(NNODES * NCELLS * NCOMP);
+//    testitest = read_csv("Langmuir1", NNODES * NCELLS * NCOMP);
 //
-//    // initial conditions
-//    VectorXd start = VectorXd::Zero(cache.c.size());
-//    VectorXd analyticalSol = VectorXd::Zero(cache.c.size());
-//    for (int i = 0; i < phNodes.size(); i++) {
-//        start[i] = sin(phNodes[i]);
-//        analyticalSol[i] = -velocity * cos(phNodes[i]);
-//    }
-//    cache.c = start;
+//    calcQ(testitest, q, para);
 //
-//    double tStart = 0.0;
-//    double CFL = 0.1;
-//    double tEnd = 2.0;
-//
-//    solveEuler(cache, DG, para, tStart, tEnd, CFL, start);
 //    Plotter plot;
-//    plot.line_plot(cache.c, phNodes, "bitte", "x", "C");
-//
+//    plot.oneLine_plot(getComponent(q, para, 1), phNodes, "Comp 2", "x", "C");
 //}
