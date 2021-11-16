@@ -22,7 +22,7 @@ public:
 	inline int strideCell() { return (polyDeg + 1) * nComp; };
 	inline int strideComp() { return 1; };
 	inline int strideNode() { return nComp; };
-	ParameterProvider(int nComp, int nCells, int polyDeg, double velocity, double disp, double porosity = 0.0, std::string isotherm = "Linear");
+	ParameterProvider(int nComp, int nCells, int polyDeg, double velocity, double disp, double porosity = 0.0, std::string isotherm = "Langmuir");
 };
 
 class Container {
@@ -32,8 +32,9 @@ public:
 	VectorXd w; //!< mobile phase + solidphase rhs
 	VectorXd S; //!< auxiliary variable du/dx
 	VectorXd h; //!< substitute h = D_ax S - v u
+	VectorXd q; //!< stationary phase q
 	VectorXd surfaceFlux; //!< stores the surface flux values
-	VectorXd boundary; //!< stores current boundary values
+	VectorXd boundary; //!< stores current boundary values for c and S -> [c_1,...c_n, S_1,...,S_n]
 	Container(int nCells, int nNodes, int nComp);
 };
 
@@ -61,6 +62,7 @@ void qAndL(int polyDeg, double x, double* L, double* q, double* qder);
 typedef double(*boundaryFunction)(double t, int component);
 double freestream01(double t, int component);
 double pulse1Comp(double t, int component);
+double pulse2Comp(double t, int component);
 /**
 *@brief Boundary condition
 */

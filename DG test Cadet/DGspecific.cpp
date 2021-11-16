@@ -4,6 +4,7 @@
 #include <iostream>
 #include <array>
 #include <vector>
+#include <string>
 #include <cmath>
 #include <algorithm>
 
@@ -158,7 +159,7 @@ public:
     inline int strideComp() { return 1; };
     inline int strideNode() { return nComp; };
     ParameterProvider(int nComp, int nCells, int polyDeg, double velocity, double disp,
-                      double porosity = 0.0, std::string isotherm = "Linear");
+                      double porosity = 0.0, std::string isotherm = "Langmuir");
 };
 
 ParameterProvider::ParameterProvider(int nComp, int nCells, int polyDeg, double v, double disp,
@@ -185,17 +186,18 @@ public:
     VectorXd w; //!< mobile phase + solidphase rhs
     VectorXd S; //!< auxiliary variable du/dx
     VectorXd h; //!< substitute h = D_ax S - v u
+    VectorXd q; //!< stationary phase q
     VectorXd surfaceFlux; //!< stores the surface flux values
     VectorXd boundary; //!< stores current boundary values for c and S -> [c_1,...c_n, S_1,...,S_n]
     Container(int nCells, int nNodes, int nComp);
 };
-
 Container::Container(int nCells, int nNodes, int nComp)
     : c(VectorXd::Zero(nCells* nNodes* nComp)),
     dc(VectorXd::Zero(nCells* nNodes* nComp)),
     w(VectorXd::Zero(nCells* nNodes* nComp)),
     S(VectorXd::Zero(nCells* nNodes* nComp)),
     h(VectorXd::Zero(nCells* nNodes* nComp)),
+    q(VectorXd::Zero(nCells* nNodes* nComp)),
     surfaceFlux(VectorXd::Zero(nComp* (nCells + 1))),
     boundary(VectorXd::Zero(4 * nComp))
 {
@@ -253,11 +255,25 @@ double freestream01(double t, int component) {
     return 0.1;
 }
 /**
-* @brief discontinous input pulse
+* @brief discontinous input pulse for one Component
 */
 double pulse1Comp(double t, int component) {
     double bound;
-    (t < 0.50) ? bound = 0.5 : bound = 0.0;
+    (t <= 1.0) ? bound = 1.0 : bound = 0.0;
+    return bound;
+}
+/**
+* @brief discontinous input pulse for two Components
+*/
+double pulse2Comp(double t, int component) {
+    double bound = 0.0;
+    if (component == 0) {
+        if(t <= 12.0) bound = 10.00;
+    }
+    else {
+        if (t <= 12.0) { bound = 10.00; }
+        //if (1.0 <= t < 2.0) { bound = 3.0; }
+    }
     return bound;
 }
 /**
