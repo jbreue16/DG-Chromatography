@@ -14,24 +14,28 @@
 /**
 *@brief returns timestep for linear advection
 */
-double timestep(Discretization DG, ParameterProvider para, double CFL, double tend) {
+double timestep(Discretization DG, ParameterProvider para, double CFL) {
 	// Delta X_eff = (DG.deltaX/DG.nNodes)
 	return CFL* (DG.deltaX/DG.nNodes) / abs(para.velocity);
 }
 /**
 *@brief 3rd order expl. RK
+* @param [in] t_save how many timesteps should be saved at outlet
+* @param [in] outlet Matrix to store the outlet solution
 */
-Eigen::VectorXd solveRK3(Container& cache, Discretization& DG, ParameterProvider& para, double tstart, double tend, double CFL, VectorXd start) {
-	double t = tstart;
+Eigen::MatrixXd solveRK3(Container& cache, Discretization& DG, ParameterProvider& para, double tStart, double tEnd, double CFL, VectorXd start,
+	int t_save = 1) {
+	double t = tStart;
 	double Dt = 0.0;
 	cache.c = start;
+	int tCount = 0;
 
 	VectorXd v1 = VectorXd::Zero(cache.c.size());
 	VectorXd v2 = VectorXd::Zero(cache.c.size());
 
-	while(t < tend) {
+	while(t < tEnd) {
 		// determine current timestep
-		Dt = (timestep(DG, para, CFL, tend) + t > tend) ? tend - t : timestep(DG, para, CFL, tend);
+		Dt = (timestep(DG, para, CFL) + t > tEnd) ? tEnd - t : timestep(DG, para, CFL);
 		//std::cout << "Timestep: " << Dt << std::endl;
 		// calc convection dispersion rhs
 		ConvDisp(cache, DG, para, t); // stores rhs in cache.dc
@@ -42,19 +46,27 @@ Eigen::VectorXd solveRK3(Container& cache, Discretization& DG, ParameterProvider
 		cache.c = cache.c + Dt * ((1.0 / 6.0) * cache.dc + (2.0 / 3.0) * v2 + (1.0 / 6.0) * v1);
 
 		t += Dt;
+		tCount++;
 		std::cout << "t=" << t << std::endl;
 	}
-	return cache.c;
+	std::cout << "timestep:" << tCount << std::endl;
+	return Eigen::MatrixXd::Zero(1,1);
 }
 
 /**
 *@brief Carpenter Kennedy 4th order low storage expl. RK
 * @detail is freestream preserving (dispersion = 0.0)
+* @param [in] t_save how many timesteps should be saved at outlet
+* @param [in] outlet Matrix to store the outlet solution
 */
-Eigen::VectorXd solveRK4(Container& cache, Discretization& DG, ParameterProvider& para, double tstart, double tend, double CFL, VectorXd start) {
-	double t = tstart;
+Eigen::MatrixXd solveRK4(Container& cache, Discretization& DG, ParameterProvider& para, double tStart, double tEnd, double CFL, VectorXd start,
+	int t_save = 1) {
+	double t = tStart;
 	double Dt = 0.0;
-	cache.c = start;
+	int tCount = 0;
+	int tSaveCount = 0;
+	VectorXd outlet = VectorXd::Zero(para.strideNode() * t_save);
+	VectorXd tSave = VectorXd::LinSpaced(t_save, tStart, tEnd);
 
 	// RK coefficients A, B, C for each stage
 	VectorXd A(5);
@@ -67,9 +79,11 @@ Eigen::VectorXd solveRK4(Container& cache, Discretization& DG, ParameterProvider
 	C << 1432997174477.0 / 9575080441755.0, 5161836677717.0 / 13612068292357.0,
 		1720146321549.0 / 2090206949498.0, 3134564353537.0 / 4481467310338.0, 2277821191437.0 / 14882151754819.0;
 	VectorXd g = VectorXd::Zero(cache.c.size());
-	while (t < tend) {
+
+	cache.c = start;
+	while (t < tEnd) {
 		// determine current timestep
-		Dt = (timestep(DG, para, CFL, tend) + t > tend) ? tend - t : timestep(DG, para, CFL, tend);
+		Dt = (timestep(DG, para, CFL) + t > tEnd) ? tEnd - t : timestep(DG, para, CFL);
 		//std::cout << "Timestep: " << Dt << std::endl;
 		// calc convection dispersion rhs
 		ConvDisp(cache, DG, para, t); // stores rhs in cache.dc
@@ -80,31 +94,57 @@ Eigen::VectorXd solveRK4(Container& cache, Discretization& DG, ParameterProvider
 			g = A[step] * g + cache.dc;
 			cache.c += C[step] * Dt * g;
 		}
-
+		//save outlet solution
+		if (t == tSave[tSaveCount] && t_save > 1) {
+			for (int comp = 0; comp < para.nComp; comp++) {
+				outlet[(t_save - tSaveCount - 1) * para.strideNode() + comp]
+					= cache.c[para.nCells * para.strideCell() - para.nComp + comp];
+			}
+			tSaveCount++;
+		}
 		t += Dt;
+		tCount++;
 		std::cout << "t=" << t << std::endl;
 	}
-	return cache.c;
+	std::cout << "timesteps: " << tCount << std::endl;
+	return outlet;
 }
 /**
 *@brief expl. Euler
+* @param [in] t_save how many timesteps should be saved at outlet
+* @param [in] outlet Matrix to store the outlet solution
 */
-Eigen::VectorXd solveEuler(Container& cache, Discretization& DG, ParameterProvider& para, double tstart, double tend, double CFL, VectorXd start) {
-	double t = tstart;
+Eigen::VectorXd solveEuler(Container& cache, Discretization& DG, ParameterProvider& para, double tStart, double tEnd, double CFL, VectorXd start,
+							int t_save = 1) {
+	double t = tStart;
 	double Dt = 0.0;
-	cache.c = start;
+	int tCount = 0;
+	int tSaveCount = 0;
+	VectorXd outlet = VectorXd::Zero(para.strideNode()*t_save);
+	VectorXd tSave = VectorXd::LinSpaced(t_save, tStart, tEnd);
 
-	while (t < tend) {
+	cache.c = start;
+	while (t < tEnd) {
 		// determine current timestep
-		Dt = (timestep(DG, para, CFL, tend) + t > tend) ? tend - t : timestep(DG, para, CFL, tend);
+		Dt = ((timestep(DG, para, CFL) + t > tSave[tSaveCount]) ? tSave[tSaveCount] - t : timestep(DG, para, CFL));
 		//std::cout << "Timestep: " << Dt << std::endl;
 		// calc convection dispersion rhs
 		ConvDisp(cache, DG, para, t); // stores rhs in cache.dc
 		// expl. Euler
 		cache.c += Dt * cache.dc;
-
+		//save outlet solution
+		if (t == tSave[tSaveCount] && t_save > 1) {
+			for (int comp = 0; comp < para.nComp; comp++) {
+				outlet[(t_save - tSaveCount - 1) * para.strideNode() + comp]
+					= cache.c[para.nCells * para.strideCell() - para.nComp + comp];
+			}
+		tSaveCount++;
+		}
 		t += Dt;
+		tCount++;
 		std::cout << "t=" << t << std::endl;
 	}
-	return cache.c;
+	std::cout << "timesteps: " << tCount << std::endl;
+	std::cout << "outlet saves: " << tSaveCount + 1 << std::endl;
+	return outlet;
 }
